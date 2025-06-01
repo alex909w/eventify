@@ -9,5 +9,6 @@
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
     "resolveJsonModule": true
-  }
+  },
+  "extends": "expo/tsconfig.base"
 }
