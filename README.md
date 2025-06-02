@@ -1,3 +1,30 @@
+# 👥 Equipo
+
+- Rossman Antonio Cabrera Dávila **CD240690**
+
+- Nelson José Almendares Ruiz **AR230429**
+
+- Jefferson Steven Velasco Alvarez **VA242207**
+
+- Nelson José Almendares Ruiz **AR230429**
+
+
+# 📝 Licencia
+Este proyecto está bajo la Licencia MIT. Ver el archivo [LICENSE](LICENSE) para más detalles.
+
+# 🖼️ Mockups
+
+https://www.figma.com/proto/s5OXWm2WalUVK9EGNDZLgL?node-id=0-1&t=LDx47rbG1xhjJ2lq-6
+
+# 📅 Notion
+
+https://www.notion.so/2055ce05934180489a6af27c124e7868?v=2055ce0593418049ad6e000c10b2d500&source=copy_link
+
+## 📚 Documentación
+
+https://docs.google.com/document/d/1IxqsWaqS7qeYpTTgNW1bO81c4Fck5q_cUvOxy9wZRTA/edit?usp=sharing
+
+
 # 🎉 Eventify
 
 Una aplicación móvil moderna para la gestión y descubrimiento de eventos, desarrollada con React Native y Expo.
