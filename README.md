@@ -6,7 +6,7 @@
 
 - Jefferson Steven Velasco Alvarez **VA242207**
 
-- Nelson José Almendares Ruiz **AR230429**
+- Arístides Alexander Hernández Valdez **HV241964**
 
 
 # 📝 Licencia
