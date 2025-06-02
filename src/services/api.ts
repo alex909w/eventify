@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { initializeApp } from "firebase/app"
 import { firebaseConfig } from "../config/firebase"
-import type { Comment } from "../components/Commentitem"
+import type { Comment } from "../components/CommentItem"
 
 // Inicializar Firebase si no está inicializado
 try {
