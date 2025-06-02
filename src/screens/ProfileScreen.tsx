@@ -5,6 +5,7 @@ import { useNavigation } from "@react-navigation/native"
 import { useAuth } from "../context/AuthContext"
 import { useState, useEffect } from "react"
 import { fetchUserEvents } from "../services/api"
+import AsyncStorage from "@react-native-async-storage/async-storage"
 
 const ProfileScreen = () => {
   const navigation = useNavigation()
@@ -19,18 +20,46 @@ const ProfileScreen = () => {
     loadUserStats()
   }, [user])
 
+  // Modificar la función loadUserStats para usar la nueva función de contadores
   const loadUserStats = async () => {
     try {
       setLoading(true)
+      console.log("Loading stats for user:", user?.uid) // Debug log
 
-      // Obtener eventos que el usuario está organizando
-      const organizingEvents = await fetchUserEvents(user?.uid || "", "organizing")
+      if (!user?.uid) {
+        setEventsCreated(0)
+        setEventsAttending(0)
+        return
+      }
 
-      // Obtener eventos a los que el usuario está asistiendo
-      const attendingEvents = await fetchUserEvents(user?.uid || "", "attending")
+      // Intentar obtener perfil del usuario con contadores
+      const userProfileStr = await AsyncStorage.getItem(`@user_profile_${user.uid}`)
+      if (userProfileStr) {
+        const userProfile = JSON.parse(userProfileStr)
+        setEventsCreated(userProfile.eventsCreated || 0)
+        setEventsAttending(userProfile.eventsAttended || 0)
+        console.log("User profile loaded from storage:", userProfile)
+      } else {
+        // Si no existe el perfil, calcular contadores directamente
+        const organizingEvents = await fetchUserEvents(user.uid, "organizing")
+        console.log("Organizing events count:", organizingEvents.length) // Debug log
 
-      setEventsCreated(organizingEvents.length)
-      setEventsAttending(attendingEvents.length)
+        const attendingEvents = await fetchUserEvents(user.uid, "attending")
+        console.log("Attending events count:", attendingEvents.length) // Debug log
+
+        setEventsCreated(organizingEvents.length)
+        setEventsAttending(attendingEvents.length)
+
+        // Crear perfil de usuario con los contadores
+        const userProfile = {
+          uid: user.uid,
+          eventsCreated: organizingEvents.length,
+          eventsAttended: attendingEvents.length,
+          lastUpdated: new Date().toISOString(),
+        }
+
+        await AsyncStorage.setItem(`@user_profile_${user.uid}`, JSON.stringify(userProfile))
+      }
     } catch (error) {
       console.error("Error loading user stats:", error)
       // En caso de error, mantener valores por defecto
@@ -92,6 +121,18 @@ const ProfileScreen = () => {
               <Text style={styles.badgeText}>{eventsCreated}</Text>
             </View>
           )}
+          <Ionicons name="chevron-forward" size={20} color="#ccc" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.menuItem} onPress={() => navigateToScreen("EventHistory")}>
+          <Ionicons name="time-outline" size={24} color="#146193" />
+          <Text style={styles.menuText}>Historial de eventos</Text>
+          <Ionicons name="chevron-forward" size={20} color="#ccc" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.menuItem} onPress={() => navigateToScreen("Statistics")}>
+          <Ionicons name="stats-chart-outline" size={24} color="#146193" />
+          <Text style={styles.menuText}>Estadísticas</Text>
           <Ionicons name="chevron-forward" size={20} color="#ccc" />
         </TouchableOpacity>
 

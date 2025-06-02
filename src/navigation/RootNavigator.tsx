@@ -17,9 +17,14 @@ import NotificationsScreen from "../screens/NotificationsScreen"
 import ProfileScreen from "../screens/ProfileScreen"
 import EditProfileScreen from "../screens/EditProfileScreen"
 import MyEventsScreen from "../screens/MyEventsScreen"
+import EditEventScreen from "../screens/EditEventScreen"
+import EventAttendeesScreen from "../screens/EventAttendeesScreen"
 import SettingsScreen from "../screens/SettingsScreen"
 import HelpSupportScreen from "../screens/HelpSupportScreen"
 import LoadingScreen from "../screens/LoadingScreen"
+import AddCommentScreen from "../screens/AddCommentScreen"
+import EventHistoryScreen from "../screens/EventHistoryScreen"
+import StatisticsScreen from "../screens/StatisticsScreen"
 
 export type RootStackParamList = {
   Main: undefined
@@ -29,8 +34,13 @@ export type RootStackParamList = {
   ForgotPassword: undefined
   EditProfile: undefined
   MyEvents: undefined
+  EditEvent: { eventId: string }
+  EventAttendees: { eventId: string }
   Settings: undefined
   HelpSupport: undefined
+  AddComment: { eventId: string; eventTitle: string }
+  EventHistory: undefined
+  Statistics: undefined
 }
 
 export type MainTabParamList = {
@@ -115,8 +125,13 @@ const AppStack = () => {
       />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: false }} />
       <Stack.Screen name="MyEvents" component={MyEventsScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="EditEvent" component={EditEventScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="EventAttendees" component={EventAttendeesScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="HelpSupport" component={HelpSupportScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="AddComment" component={AddCommentScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="EventHistory" component={EventHistoryScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Statistics" component={StatisticsScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   )
 }

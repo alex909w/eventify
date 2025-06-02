@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   StyleSheet,
   View,
@@ -13,15 +13,18 @@ import {
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import DateTimePicker from "@react-native-community/datetimepicker"
-import { useNavigation } from "@react-navigation/native"
+import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native"
 import Input from "../components/Input"
 import Button from "../components/Button"
 import ImageSelector from "../components/ImageSelector"
 import { useForm } from "../hooks/useForm"
 import { useAuth } from "../context/AuthContext"
-import { createEvent } from "../services/api"
+import { fetchEventById, updateEvent, deleteEvent } from "../services/api"
+import type { RootStackParamList } from "../navigation/RootNavigator"
 
-type CreateEventFormData = {
+type EditEventScreenRouteProp = RouteProp<RootStackParamList, "EditEvent">
+
+type EditEventFormData = {
   title: string
   description: string
   location: string
@@ -29,20 +32,24 @@ type CreateEventFormData = {
   image: string
 }
 
-const CreateEventScreen = () => {
+const EditEventScreen = () => {
   const navigation = useNavigation()
+  const route = useRoute<EditEventScreenRouteProp>()
+  const { eventId } = route.params
   const { user } = useAuth()
+  const [loading, setLoading] = useState(true)
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [showTimePicker, setShowTimePicker] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const { values, errors, touched, isSubmitting, handleChange, handleBlur, handleSubmit, setValues } =
-    useForm<CreateEventFormData>(
+    useForm<EditEventFormData>(
       {
         title: "",
         description: "",
         location: "",
         date: new Date(),
-        image: "/assets/evento5.jpg", // Imagen por defecto
+        image: "/assets/evento1.jpg",
       },
       {
         title: {
@@ -72,79 +79,106 @@ const CreateEventScreen = () => {
       },
     )
 
-  const handleCreateEvent = async (formData: CreateEventFormData) => {
+  useEffect(() => {
+    loadEventData()
+  }, [eventId])
+
+  const loadEventData = async () => {
+    try {
+      setLoading(true)
+      const event = await fetchEventById(eventId)
+
+      // Verificar que el usuario es el organizador
+      if (event.organizerId !== user?.uid) {
+        Alert.alert("Error", "No tienes permisos para editar este evento", [
+          { text: "OK", onPress: () => navigation.goBack() },
+        ])
+        return
+      }
+
+      // Convertir la fecha del evento a objeto Date
+      const eventDate = new Date(event.date + " " + event.time)
+
+      setValues({
+        title: event.title,
+        description: event.description,
+        location: event.location,
+        date: eventDate,
+        image: event.image,
+      })
+    } catch (error) {
+      console.error("Error loading event:", error)
+      Alert.alert("Error", "No se pudo cargar el evento", [{ text: "OK", onPress: () => navigation.goBack() }])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleUpdateEvent = async (formData: EditEventFormData) => {
     try {
       if (!user) {
-        Alert.alert("Error", "Debes estar autenticado para crear un evento")
+        Alert.alert("Error", "Debes estar autenticado para editar un evento")
         return
       }
 
-      console.log("🚀 Creating event for user:", user.uid) // Debug log
-      console.log("👤 User display name:", user.displayName) // Debug log
-      console.log("📝 Form data:", formData) // Debug log
+      await updateEvent(eventId, {
+        title: formData.title,
+        description: formData.description,
+        location: formData.location,
+        date: formData.date,
+        image: formData.image,
+      })
 
-      // Verificar que todos los campos estén completos
-      if (!formData.title || !formData.description || !formData.location || !formData.image) {
-        Alert.alert("Error", "Por favor completa todos los campos")
-        return
-      }
-
-      // Crear el evento con todos los datos necesarios
-      await createEvent(
+      Alert.alert("¡Éxito!", "Tu evento ha sido actualizado correctamente", [
         {
-          title: formData.title,
-          description: formData.description,
-          location: formData.location,
-          date: formData.date,
-          image: formData.image,
+          text: "OK",
+          onPress: () => navigation.goBack(),
         },
-        user.uid, // userId
-        user.displayName || user.email?.split("@")[0] || "Usuario", // userName
-      )
+      ])
+    } catch (error) {
+      console.error("Error updating event:", error)
+      Alert.alert("Error", "No se pudo actualizar el evento. Inténtalo de nuevo.")
+    }
+  }
 
-      console.log("✅ Event created successfully") // Debug log
-
-      Alert.alert("¡Éxito!", "Tu evento ha sido creado correctamente", [
+  const handleDeleteEvent = () => {
+    Alert.alert(
+      "Eliminar Evento",
+      "¿Estás seguro de que deseas eliminar este evento? Esta acción no se puede deshacer.",
+      [
+        { text: "Cancelar", style: "cancel" },
         {
-          text: "Ver mis eventos",
+          text: "Eliminar",
+          style: "destructive",
+          onPress: confirmDeleteEvent,
+        },
+      ],
+    )
+  }
+
+  const confirmDeleteEvent = async () => {
+    try {
+      setDeleting(true)
+      await deleteEvent(eventId, user?.uid) // Pasar el userId para actualizar contadores
+
+      Alert.alert("Evento Eliminado", "El evento ha sido eliminado correctamente", [
+        {
+          text: "OK",
           onPress: () => {
-            // Resetear formulario
-            setValues({
-              title: "",
-              description: "",
-              location: "",
-              date: new Date(),
-              image: "/assets/evento5.jpg",
-            })
-            // Navegar a mis eventos
+            // Navegar de vuelta a Mis Eventos
             navigation.navigate("MyEvents" as never)
-          },
-        },
-        {
-          text: "Crear otro",
-          onPress: () => {
-            // Solo resetear formulario
-            setValues({
-              title: "",
-              description: "",
-              location: "",
-              date: new Date(),
-              image: "/assets/evento5.jpg",
-            })
           },
         },
       ])
     } catch (error) {
-      console.error("💥 Error creating event:", error)
-      Alert.alert(
-        "Error",
-        `No se pudo crear el evento: ${error instanceof Error ? error.message : "Error desconocido"}`,
-      )
+      console.error("Error deleting event:", error)
+      Alert.alert("Error", "No se pudo eliminar el evento. Inténtalo de nuevo.")
+    } finally {
+      setDeleting(false)
     }
   }
 
   const handleImageSelect = (imageUri: string) => {
-    console.log("🖼️ Image selected:", imageUri) // Debug log
     setValues((prev) => ({ ...prev, image: imageUri }))
   }
 
@@ -180,17 +214,28 @@ const CreateEventScreen = () => {
     })
   }
 
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text>Cargando evento...</Text>
+      </View>
+    )
+  }
+
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
       <ScrollView style={styles.container}>
         <View style={styles.header}>
-          <Ionicons name="calendar-outline" size={32} color="#146193" />
-          <Text style={styles.headerTitle}>Crear Nuevo Evento</Text>
-          <Text style={styles.headerSubtitle}>Comparte tu evento con la comunidad</Text>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color="#146193" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Editar Evento</Text>
+          <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteEvent} disabled={deleting}>
+            <Ionicons name="trash-outline" size={24} color="#F44336" />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.formContainer}>
-          {/* Selector de imagen */}
           <ImageSelector selectedImage={values.image} onImageSelect={handleImageSelect} />
           {errors.image && touched.image && <Text style={styles.errorText}>{errors.image}</Text>}
 
@@ -202,7 +247,7 @@ const CreateEventScreen = () => {
             onBlur={handleBlur("title")}
             error={errors.title}
             touched={touched.title}
-            editable={!isSubmitting}
+            editable={!isSubmitting && !deleting}
             icon="musical-notes-outline"
           />
 
@@ -214,7 +259,7 @@ const CreateEventScreen = () => {
             onBlur={handleBlur("description")}
             error={errors.description}
             touched={touched.description}
-            editable={!isSubmitting}
+            editable={!isSubmitting && !deleting}
             multiline
             style={styles.textArea}
             icon="document-text-outline"
@@ -228,7 +273,7 @@ const CreateEventScreen = () => {
             onBlur={handleBlur("location")}
             error={errors.location}
             touched={touched.location}
-            editable={!isSubmitting}
+            editable={!isSubmitting && !deleting}
             icon="location-outline"
           />
 
@@ -238,7 +283,7 @@ const CreateEventScreen = () => {
               <TouchableOpacity
                 style={styles.dateTimeButton}
                 onPress={() => setShowDatePicker(true)}
-                disabled={isSubmitting}
+                disabled={isSubmitting || deleting}
               >
                 <Ionicons name="calendar-outline" size={20} color="#146193" />
                 <Text style={styles.dateTimeText}>{formatDate(values.date)}</Text>
@@ -250,7 +295,7 @@ const CreateEventScreen = () => {
               <TouchableOpacity
                 style={styles.dateTimeButton}
                 onPress={() => setShowTimePicker(true)}
-                disabled={isSubmitting}
+                disabled={isSubmitting || deleting}
               >
                 <Ionicons name="time-outline" size={20} color="#146193" />
                 <Text style={styles.dateTimeText}>{formatTime(values.date)}</Text>
@@ -272,18 +317,26 @@ const CreateEventScreen = () => {
             <DateTimePicker value={values.date} mode="time" display="default" onChange={onTimeChange} />
           )}
 
-          <Button
-            title="Crear Evento"
-            onPress={() => handleSubmit(handleCreateEvent)}
-            loading={isSubmitting}
-            disabled={isSubmitting}
-            icon={<Ionicons name="add-circle-outline" size={24} color="#fff" style={{ marginRight: 8 }} />}
-            style={styles.createButton}
-          />
+          <View style={styles.buttonContainer}>
+            <Button
+              title="Guardar Cambios"
+              onPress={() => handleSubmit(handleUpdateEvent)}
+              loading={isSubmitting}
+              disabled={isSubmitting || deleting}
+              icon={<Ionicons name="save-outline" size={24} color="#fff" style={{ marginRight: 8 }} />}
+              style={styles.saveButton}
+            />
 
-          <Text style={styles.disclaimer}>
-            * Campos obligatorios. Tu evento será publicado inmediatamente y aparecerá en la lista de eventos.
-          </Text>
+            <Button
+              title="Eliminar Evento"
+              onPress={handleDeleteEvent}
+              loading={deleting}
+              disabled={isSubmitting || deleting}
+              variant="danger"
+              icon={<Ionicons name="trash-outline" size={24} color="#fff" style={{ marginRight: 8 }} />}
+              style={styles.deleteEventButton}
+            />
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -295,22 +348,30 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
-  header: {
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
-    padding: 24,
-    backgroundColor: "#f8f9fa",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  backButton: {
+    marginRight: 16,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "bold",
-    marginTop: 12,
-    marginBottom: 4,
     color: "#333",
+    flex: 1,
   },
-  headerSubtitle: {
-    fontSize: 16,
-    color: "#666",
-    textAlign: "center",
+  deleteButton: {
+    padding: 4,
   },
   formContainer: {
     padding: 20,
@@ -354,16 +415,16 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     color: "#333",
   },
-  createButton: {
+  buttonContainer: {
     marginTop: 20,
-    marginBottom: 16,
+    gap: 16,
   },
-  disclaimer: {
-    fontSize: 14,
-    color: "#666",
-    textAlign: "center",
-    fontStyle: "italic",
+  saveButton: {
+    backgroundColor: "#146193",
+  },
+  deleteEventButton: {
+    backgroundColor: "#F44336",
   },
 })
 
-export default CreateEventScreen
+export default EditEventScreen

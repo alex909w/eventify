@@ -1,11 +1,27 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { StyleSheet, View, Text, FlatList, TouchableOpacity, ActivityIndicator } from "react-native"
+import {
+  StyleSheet,
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
+} from "react-native"
 import { Ionicons } from "@expo/vector-icons"
-import { useNavigation } from "@react-navigation/native"
+import { useNavigation, useFocusEffect, type NavigationProp } from "@react-navigation/native"
+import type { RootStackParamList } from "../navigation/RootNavigator"
+import { useCallback } from "react"
 import EventCard from "../components/EventCard"
 import EmptyState from "../components/EmptyState"
+import { useAuth } from "../context/AuthContext"
+import { fetchUserEvents, debugStorage } from "../services/api"
+import { __DEV__ } from "../config"
+
+type MyEventsScreenNavigationProp = NavigationProp<RootStackParamList>
 
 type Event = {
   id: string
@@ -17,61 +33,73 @@ type Event = {
 }
 
 const MyEventsScreen = () => {
-  const navigation = useNavigation()
+  const navigation = useNavigation<MyEventsScreenNavigationProp>()
+  const { user } = useAuth()
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [events, setEvents] = useState<Event[]>([])
   const [activeTab, setActiveTab] = useState<"organizing" | "attending">("organizing")
 
+  // Recargar eventos cuando la pantalla recibe foco
+  useFocusEffect(
+    useCallback(() => {
+      console.log("📱 MyEventsScreen focused, reloading events") // Debug log
+      loadEvents()
+    }, [activeTab, user]),
+  )
+
   useEffect(() => {
     loadEvents()
-  }, [activeTab])
+  }, [activeTab, user])
 
   const loadEvents = async () => {
     setLoading(true)
-    // Simular carga de datos
-    setTimeout(() => {
-      // Datos de ejemplo con las imágenes específicas
-      const mockEvents: Event[] = [
-        {
-          id: "1",
-          title: "Cena de gala empresarial",
-          date: "15 Jun 2025",
-          location: "Parque Central",
-          image: "/assets/evento1.jpg",
-          isOrganizer: true,
-        },
-        {
-          id: "2",
-          title: "Networking Profesional",
-          date: "22 Jun 2025",
-          location: "Centro de Convenciones",
-          image: "/assets/evento2.png",
-          isOrganizer: false,
-        },
-        {
-          id: "3",
-          title: "Festival de mascotas",
-          date: "25 Jun 2025",
-          location: "Club Canino",
-          image: "/assets/evento3.jpg",
-          isOrganizer: true,
-        },
-        {
-          id: "4",
-          title: "Conferencia tecnológica",
-          date: "30 Jun 2025",
-          location: "Plaza Principal",
-          image: "/assets/evento4.jpg",
-          isOrganizer: false,
-        },
-      ]
+    try {
+      console.log("🔄 Loading events for user:", user?.uid) // Debug log
+      console.log("🏷️ Active tab:", activeTab) // Debug log
 
-      const filteredEvents = mockEvents.filter((event) =>
-        activeTab === "organizing" ? event.isOrganizer : !event.isOrganizer,
-      )
-      setEvents(filteredEvents)
+      if (!user?.uid) {
+        console.log("⚠️ No user UID available") // Debug log
+        setEvents([])
+        return
+      }
+
+      // Debug storage first in development
+      if (__DEV__) {
+        await debugStorage()
+      }
+
+      // Obtener eventos del usuario actual
+      const userEvents = await fetchUserEvents(user.uid, activeTab)
+      console.log(`✅ Found ${userEvents.length} events for tab ${activeTab}`) // Debug log
+      console.log("📋 Events data:", userEvents) // Debug log
+
+      setEvents(userEvents)
+    } catch (error) {
+      console.error("💥 Error loading events:", error)
+      setEvents([])
+
+      // Mostrar error al usuario en desarrollo
+      if (__DEV__) {
+        Alert.alert("Error de desarrollo", `Error cargando eventos: ${error}`)
+      }
+    } finally {
       setLoading(false)
-    }, 1000)
+    }
+  }
+
+  const onRefresh = async () => {
+    setRefreshing(true)
+    await loadEvents()
+    setRefreshing(false)
+  }
+
+  const handleEditEvent = (eventId: string) => {
+    navigation.navigate("EditEvent", { eventId })
+  }
+
+  const handleViewAttendees = (eventId: string) => {
+    navigation.navigate("EventAttendees", { eventId })
   }
 
   const renderEventItem = ({ item }: { item: Event }) => (
@@ -86,11 +114,11 @@ const MyEventsScreen = () => {
       />
       {item.isOrganizer && (
         <View style={styles.organizerActions}>
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity style={styles.actionButton} onPress={() => handleEditEvent(item.id)}>
             <Ionicons name="create-outline" size={20} color="#146193" />
             <Text style={styles.actionText}>Editar</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity style={styles.actionButton} onPress={() => handleViewAttendees(item.id)}>
             <Ionicons name="people-outline" size={20} color="#146193" />
             <Text style={styles.actionText}>Asistentes</Text>
           </TouchableOpacity>
@@ -102,19 +130,31 @@ const MyEventsScreen = () => {
   const renderEmptyState = () => {
     if (activeTab === "organizing") {
       return (
-        <EmptyState
-          icon="calendar-outline"
-          title="No estás organizando eventos"
-          message="Crea tu primer evento haciendo clic en el botón 'Crear' en la pestaña principal"
-        />
+        <View style={styles.emptyStateContainer}>
+          <EmptyState
+            icon="calendar-outline"
+            title="No estás organizando eventos"
+            message="Crea tu primer evento haciendo clic en el botón 'Crear' en la pestaña principal"
+          />
+          <TouchableOpacity style={styles.createEventButton} onPress={() => navigation.navigate("Main" as never)}>
+            <Ionicons name="add-circle" size={24} color="#fff" />
+            <Text style={styles.createEventButtonText}>Crear Mi Primer Evento</Text>
+          </TouchableOpacity>
+        </View>
       )
     } else {
       return (
-        <EmptyState
-          icon="heart-outline"
-          title="No estás asistiendo a eventos"
-          message="Explora eventos disponibles y únete a los que te interesen"
-        />
+        <View style={styles.emptyStateContainer}>
+          <EmptyState
+            icon="heart-outline"
+            title="No estás asistiendo a eventos"
+            message="Explora eventos disponibles y únete a los que te interesen"
+          />
+          <TouchableOpacity style={styles.exploreEventsButton} onPress={() => navigation.navigate("Main" as never)}>
+            <Ionicons name="search" size={24} color="#146193" />
+            <Text style={styles.exploreEventsButtonText}>Explorar Eventos</Text>
+          </TouchableOpacity>
+        </View>
       )
     }
   }
@@ -126,6 +166,9 @@ const MyEventsScreen = () => {
           <Ionicons name="arrow-back" size={24} color="#146193" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Mis Eventos</Text>
+        <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
+          <Ionicons name="refresh" size={24} color="#146193" />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.tabContainer}>
@@ -133,13 +176,19 @@ const MyEventsScreen = () => {
           style={[styles.tab, activeTab === "organizing" && styles.activeTab]}
           onPress={() => setActiveTab("organizing")}
         >
-          <Text style={[styles.tabText, activeTab === "organizing" && styles.activeTabText]}>Organizando</Text>
+          <Text style={[styles.tabText, activeTab === "organizing" && styles.activeTabText]}>
+            Organizando
+            {events.length > 0 && activeTab === "organizing" && <Text style={styles.tabBadge}> ({events.length})</Text>}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, activeTab === "attending" && styles.activeTab]}
           onPress={() => setActiveTab("attending")}
         >
-          <Text style={[styles.tabText, activeTab === "attending" && styles.activeTabText]}>Asistiendo</Text>
+          <Text style={[styles.tabText, activeTab === "attending" && styles.activeTabText]}>
+            Asistiendo
+            {events.length > 0 && activeTab === "attending" && <Text style={styles.tabBadge}> ({events.length})</Text>}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -155,9 +204,26 @@ const MyEventsScreen = () => {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#146193"]} tintColor="#146193" />
+          }
         />
       ) : (
         renderEmptyState()
+      )}
+
+      {/* Debug info - solo en desarrollo */}
+      {__DEV__ && (
+        <View style={styles.debugContainer}>
+          <TouchableOpacity
+            style={styles.debugToggle}
+            onPress={() =>
+              Alert.alert("Debug Info", `User ID: ${user?.uid}\nEvents: ${events.length}\nTab: ${activeTab}`)
+            }
+          >
+            <Text style={styles.debugText}>DEBUG</Text>
+          </TouchableOpacity>
+        </View>
       )}
     </View>
   )
@@ -171,6 +237,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
@@ -182,6 +249,10 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
     color: "#333",
+    flex: 1,
+  },
+  refreshButton: {
+    padding: 4,
   },
   tabContainer: {
     flexDirection: "row",
@@ -202,6 +273,11 @@ const styles = StyleSheet.create({
     color: "#666",
   },
   activeTabText: {
+    color: "#146193",
+    fontWeight: "bold",
+  },
+  tabBadge: {
+    fontSize: 14,
     color: "#146193",
     fontWeight: "bold",
   },
@@ -238,6 +314,59 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     color: "#146193",
     fontWeight: "500",
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  createEventButton: {
+    flexDirection: "row",
+    backgroundColor: "#146193",
+    borderRadius: 25,
+    padding: 15,
+    alignItems: "center",
+    marginTop: 20,
+    paddingHorizontal: 25,
+  },
+  createEventButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    marginLeft: 8,
+    fontSize: 16,
+  },
+  exploreEventsButton: {
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    borderColor: "#146193",
+    borderWidth: 2,
+    borderRadius: 25,
+    padding: 15,
+    alignItems: "center",
+    marginTop: 20,
+    paddingHorizontal: 25,
+  },
+  exploreEventsButtonText: {
+    color: "#146193",
+    fontWeight: "bold",
+    marginLeft: 8,
+    fontSize: 16,
+  },
+  debugContainer: {
+    position: "absolute",
+    bottom: 20,
+    right: 20,
+  },
+  debugToggle: {
+    backgroundColor: "rgba(0,0,0,0.8)",
+    padding: 10,
+    borderRadius: 5,
+  },
+  debugText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "bold",
   },
 })
 

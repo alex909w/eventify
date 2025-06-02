@@ -1,32 +1,56 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { StyleSheet, View, Text, FlatList, TouchableOpacity, ActivityIndicator } from "react-native"
+import { StyleSheet, View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
-
-type Notification = {
-  id: string
-  title: string
-  message: string
-  date: string
-  read: boolean
-  type: "event" | "message" | "reminder" | "system"
-}
+import { useNavigation, type NavigationProp } from "@react-navigation/native"
+import type { RootStackParamList } from "../navigation/RootNavigator"
+import { fetchNotifications, markNotificationAsRead, type Notification } from "../services/api"
 
 const NotificationsScreen = () => {
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
-    // Simular carga de notificaciones
-    setTimeout(() => {
-      setNotifications(mockNotifications)
-      setLoading(false)
-    }, 1000)
+    loadNotifications()
   }, [])
 
-  const markAsRead = (id: string) => {
-    setNotifications((prev) => prev.map((notif) => (notif.id === id ? { ...notif, read: true } : notif)))
+  const loadNotifications = async () => {
+    try {
+      setLoading(true)
+      const notificationsData = await fetchNotifications()
+      setNotifications(notificationsData)
+    } catch (error) {
+      console.error("Error loading notifications:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const onRefresh = async () => {
+    setRefreshing(true)
+    await loadNotifications()
+    setRefreshing(false)
+  }
+
+  const markAsRead = async (notification: Notification) => {
+    if (!notification.read) {
+      try {
+        await markNotificationAsRead(notification.id)
+        setNotifications((prev) =>
+          prev.map((notif) => (notif.id === notification.id ? { ...notif, read: true } : notif)),
+        )
+      } catch (error) {
+        console.error("Error marking notification as read:", error)
+      }
+    }
+
+    // Navegar al evento si la notificación tiene eventId
+    if (notification.eventId) {
+      navigation.navigate("EventDetail", { eventId: notification.eventId })
+    }
   }
 
   const getNotificationIcon = (type: string) => {
@@ -39,18 +63,37 @@ const NotificationsScreen = () => {
         return "alarm-outline"
       case "system":
         return "settings-outline"
+      case "rsvp":
+        return "checkmark-circle-outline"
       default:
         return "notifications-outline"
+    }
+  }
+
+  const getNotificationColor = (type: string) => {
+    switch (type) {
+      case "event":
+        return "#146193"
+      case "message":
+        return "#4CAF50"
+      case "reminder":
+        return "#FF9800"
+      case "system":
+        return "#9C27B0"
+      case "rsvp":
+        return "#2196F3"
+      default:
+        return "#146193"
     }
   }
 
   const renderNotification = ({ item }: { item: Notification }) => (
     <TouchableOpacity
       style={[styles.notificationItem, !item.read && styles.unreadNotification]}
-      onPress={() => markAsRead(item.id)}
+      onPress={() => markAsRead(item)}
     >
-      <View style={styles.iconContainer}>
-        <Ionicons name={getNotificationIcon(item.type) as any} size={24} color="#146193" />
+      <View style={[styles.iconContainer, { backgroundColor: `${getNotificationColor(item.type)}20` }]}>
+        <Ionicons name={getNotificationIcon(item.type) as any} size={24} color={getNotificationColor(item.type)} />
       </View>
       <View style={styles.notificationContent}>
         <Text style={styles.notificationTitle}>{item.title}</Text>
@@ -58,6 +101,7 @@ const NotificationsScreen = () => {
         <Text style={styles.notificationDate}>{item.date}</Text>
       </View>
       {!item.read && <View style={styles.unreadDot} />}
+      {item.eventId && <Ionicons name="chevron-forward" size={20} color="#ccc" style={styles.chevron} />}
     </TouchableOpacity>
   )
 
@@ -96,46 +140,14 @@ const NotificationsScreen = () => {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#146193"]} tintColor="#146193" />
+          }
         />
       )}
     </View>
   )
 }
-
-const mockNotifications: Notification[] = [
-  {
-    id: "1",
-    title: "Nuevo evento cerca de ti",
-    message: "Festival de Mascotas 2024 se realizará a 5km de tu ubicación",
-    date: "Hace 2 horas",
-    read: false,
-    type: "event",
-  },
-  {
-    id: "2",
-    title: "Recordatorio de evento",
-    message: "Conferencia de Tecnología comienza mañana a las 2:00 PM",
-    date: "Hace 5 horas",
-    read: false,
-    type: "reminder",
-  },
-  {
-    id: "3",
-    title: "Mensaje del organizador",
-    message: "Gracias por registrarte en nuestro evento. ¡Te esperamos!",
-    date: "Ayer",
-    read: true,
-    type: "message",
-  },
-  {
-    id: "4",
-    title: "Actualización de la app",
-    message: "Nueva versión disponible con mejoras y nuevas funciones",
-    date: "Hace 2 días",
-    read: true,
-    type: "system",
-  },
-]
 
 const styles = StyleSheet.create({
   container: {
@@ -200,7 +212,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#e3f2fd",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 16,
@@ -229,6 +240,10 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     backgroundColor: "#146193",
+    alignSelf: "center",
+    marginRight: 8,
+  },
+  chevron: {
     alignSelf: "center",
   },
   emptyContainer: {

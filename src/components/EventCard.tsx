@@ -1,14 +1,14 @@
 import { StyleSheet, View, Text, Image, TouchableOpacity } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
-import { useNavigation } from "@react-navigation/native"
-import type { StackNavigationProp } from "@react-navigation/stack"
+import { useNavigation, type NavigationProp } from "@react-navigation/native"
 
 // Definir tipos para la navegación
 type RootStackParamList = {
   EventDetail: { eventId: string }
 }
 
-type EventCardNavigationProp = StackNavigationProp<RootStackParamList>
+// Update the navigation type
+type EventCardNavigationProp = NavigationProp<RootStackParamList>
 
 type EventCardProps = {
   id: string
@@ -20,6 +20,7 @@ type EventCardProps = {
 }
 
 const EventCard = ({ id, title, date, location, image, horizontal = false }: EventCardProps) => {
+  // Update the navigation hook
   const navigation = useNavigation<EventCardNavigationProp>()
 
   const handlePress = () => {
@@ -45,7 +46,7 @@ const EventCard = ({ id, title, date, location, image, horizontal = false }: Eve
         return require("../../assets/evento4.jpg")
       default:
         // Imagen por defecto
-        return require("../../assets/evento1.jpg")
+        return require("../../assets/evento5.jpg")
     }
   }
 

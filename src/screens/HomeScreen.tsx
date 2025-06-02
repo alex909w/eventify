@@ -2,17 +2,18 @@
 
 import { useState, useEffect } from "react"
 import { StyleSheet, View, Text, FlatList, ActivityIndicator, ScrollView } from "react-native"
-import { useNavigation } from "@react-navigation/native"
-import type { StackNavigationProp } from "@react-navigation/stack"
+import { useNavigation, type NavigationProp } from "@react-navigation/native"
 import type { RootStackParamList } from "../navigation/RootNavigator"
 import { useAuth } from "../context/AuthContext"
 import { fetchEvents, type Event } from "../services/api"
 import EventCard from "../components/EventCard"
 import EmptyState from "../components/EmptyState"
 
-type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList>
+// Update the navigation type
+type HomeScreenNavigationProp = NavigationProp<RootStackParamList>
 
 const HomeScreen = () => {
+  // Update the navigation hook
   const navigation = useNavigation<HomeScreenNavigationProp>()
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
