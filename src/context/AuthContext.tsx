@@ -32,6 +32,7 @@ try {
   }
 }
 
+// Inicializar Auth - Firebase v9+ maneja automáticamente la persistencia en React Native
 const auth = getAuth(app)
 
 type User = {
@@ -69,23 +70,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const userJSON = await AsyncStorage.getItem("@eventify_user")
-        if (userJSON) {
-          const userData = JSON.parse(userJSON)
-          setUser(userData)
-        }
-      } catch (error) {
-        console.error("Error loading user from storage:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
+    console.log("🔥 Setting up Firebase Auth listener...")
+    console.log("📱 Firebase Auth will automatically handle persistence in React Native")
 
-    loadUser()
-
+    // Firebase Auth v9+ automáticamente maneja la persistencia en React Native
+    // No necesitamos configurar AsyncStorage manualmente
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      console.log("👤 Auth state changed:", firebaseUser ? "User logged in" : "User logged out")
+
       if (firebaseUser) {
         const userData: User = {
           uid: firebaseUser.uid,
@@ -95,31 +87,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isAnonymous: firebaseUser.isAnonymous,
         }
         setUser(userData)
+
+        // Guardar en AsyncStorage como backup adicional para nuestros propios datos
         try {
-          await AsyncStorage.setItem("@eventify_user", JSON.stringify(userData))
+          await AsyncStorage.setItem("@eventify_user_backup", JSON.stringify(userData))
+          console.log("💾 User data saved to AsyncStorage backup")
         } catch (error) {
-          console.error("Error saving user to storage:", error)
+          console.error("❌ Error saving user to storage:", error)
         }
       } else {
         setUser(null)
+
+        // Limpiar AsyncStorage backup
         try {
-          await AsyncStorage.removeItem("@eventify_user")
+          await AsyncStorage.removeItem("@eventify_user_backup")
+          console.log("🗑️ User data removed from AsyncStorage backup")
         } catch (error) {
-          console.error("Error removing user from storage:", error)
+          console.error("❌ Error removing user from storage:", error)
         }
       }
       setLoading(false)
     })
 
-    return () => unsubscribe()
+    return () => {
+      console.log("🔥 Cleaning up Firebase Auth listener")
+      unsubscribe()
+    }
   }, [])
 
   const signInWithEmail = async (email: string, password: string) => {
     try {
+      console.log("📧 Signing in with email:", email)
       await signInWithEmailAndPassword(auth, email, password)
       Alert.alert("Éxito", "Bienvenido a Eventify")
     } catch (error: any) {
-      console.error("Error signing in:", error)
+      console.error("❌ Error signing in:", error)
       let errorMessage = "Credenciales incorrectas"
       if (error.code === "auth/user-not-found") {
         errorMessage = "No existe una cuenta con este correo electrónico"
@@ -129,6 +131,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         errorMessage = "Correo electrónico inválido"
       } else if (error.code === "auth/too-many-requests") {
         errorMessage = "Demasiados intentos fallidos. Intenta más tarde"
+      } else if (error.code === "auth/invalid-credential") {
+        errorMessage = "Credenciales inválidas. Verifica tu email y contraseña"
       }
       Alert.alert("Error", errorMessage)
     }
@@ -136,6 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUpWithEmail = async (email: string, password: string, displayName?: string) => {
     try {
+      console.log("📝 Creating account for:", email)
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
 
       // Actualizar el perfil del usuario con el nombre completo
@@ -143,11 +148,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await updateProfile(userCredential.user, {
           displayName: displayName,
         })
+        console.log("👤 Profile updated with display name:", displayName)
       }
 
       Alert.alert("Éxito", "¡Bienvenido a Eventify! Tu cuenta ha sido creada")
     } catch (error: any) {
-      console.error("Error signing up:", error)
+      console.error("❌ Error signing up:", error)
       let errorMessage = "No se pudo crear la cuenta"
       if (error.code === "auth/email-already-in-use") {
         errorMessage = "Ya existe una cuenta con este correo electrónico"
@@ -187,12 +193,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     try {
+      console.log("👋 Signing out...")
       await firebaseSignOut(auth)
       await GoogleSignin.signOut()
-      await AsyncStorage.removeItem("@eventify_user")
+      await AsyncStorage.removeItem("@eventify_user_backup")
       setUser(null)
+      console.log("✅ Sign out completed")
     } catch (error) {
-      console.error("Error signing out:", error)
+      console.error("❌ Error signing out:", error)
       Alert.alert("Error", "No se pudo cerrar sesión")
     }
   }
@@ -203,6 +211,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!currentUser) {
         throw new Error("No hay usuario autenticado")
       }
+
+      console.log("👤 Updating user profile:", { displayName, photoURL })
 
       // Actualizar el perfil en Firebase Auth
       await updateProfile(currentUser, {
@@ -219,12 +229,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setUser(updatedUser)
 
-      // Guardar en AsyncStorage
-      await AsyncStorage.setItem("@eventify_user", JSON.stringify(updatedUser))
+      // Guardar en AsyncStorage backup
+      await AsyncStorage.setItem("@eventify_user_backup", JSON.stringify(updatedUser))
 
+      console.log("✅ Profile updated successfully")
       return { success: true }
     } catch (error: any) {
-      console.error("Error updating profile:", error)
+      console.error("❌ Error updating profile:", error)
       return { success: false, error: error.message }
     }
   }

@@ -1,16 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import {
-  StyleSheet,
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-  Alert,
-} from "react-native"
+import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator, Alert } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { useNavigation, useFocusEffect, type NavigationProp } from "@react-navigation/native"
 import type { RootStackParamList } from "../navigation/RootNavigator"
@@ -102,8 +93,8 @@ const MyEventsScreen = () => {
     navigation.navigate("EventAttendees", { eventId })
   }
 
-  const renderEventItem = ({ item }: { item: Event }) => (
-    <View style={styles.eventItemContainer}>
+  const renderEventItem = (item: Event, index: number) => (
+    <View key={item.id} style={styles.eventItemContainer}>
       <EventCard
         id={item.id}
         title={item.title}
@@ -198,16 +189,7 @@ const MyEventsScreen = () => {
           <Text style={styles.loadingText}>Cargando eventos...</Text>
         </View>
       ) : events.length > 0 ? (
-        <FlatList
-          data={events}
-          renderItem={renderEventItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContainer}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#146193"]} tintColor="#146193" />
-          }
-        />
+        <View style={styles.eventsContainer}>{events.map((item, index) => renderEventItem(item, index))}</View>
       ) : (
         renderEmptyState()
       )}
@@ -290,7 +272,8 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: "#666",
   },
-  listContainer: {
+  eventsContainer: {
+    flex: 1,
     padding: 16,
   },
   eventItemContainer: {

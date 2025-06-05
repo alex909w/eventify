@@ -1,4 +1,4 @@
-import { StyleSheet, View, Text, FlatList, TouchableOpacity, Alert } from "react-native"
+import { StyleSheet, View, Text, TouchableOpacity, Alert } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import CommentItem, { type Comment } from "./CommentItem"
 import RatingStars from "./RatingStars"
@@ -34,10 +34,6 @@ const CommentsList = ({
     ])
   }
 
-  const renderComment = ({ item }: { item: Comment }) => (
-    <CommentItem comment={item} onLike={onLikeComment} onReport={handleReportComment} />
-  )
-
   const renderHeader = () => (
     <View style={styles.header}>
       <View style={styles.ratingSection}>
@@ -72,13 +68,16 @@ const CommentsList = ({
     <View style={styles.container}>
       {renderHeader()}
       {comments.length > 0 ? (
-        <FlatList
-          data={comments}
-          renderItem={renderComment}
-          keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
-          nestedScrollEnabled={true}
-        />
+        <View style={styles.commentsContainer}>
+          {comments.map((comment) => (
+            <CommentItem
+              key={comment.id}
+              comment={comment}
+              onLike={onLikeComment}
+              onReport={(commentId) => handleReportComment(commentId)}
+            />
+          ))}
+        </View>
       ) : (
         renderEmpty()
       )}
@@ -88,7 +87,6 @@ const CommentsList = ({
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     backgroundColor: "#fff",
   },
   header: {
@@ -137,8 +135,10 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     marginLeft: 8,
   },
+  commentsContainer: {
+    backgroundColor: "#fff",
+  },
   emptyContainer: {
-    flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 40,

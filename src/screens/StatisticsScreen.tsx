@@ -142,22 +142,28 @@ const StatisticsScreen = () => {
           {renderStatCard(
             "Eventos Organizados",
             statistics.totalEventsOrganized,
-            "calendar",
+            "calendar-outline",
             "#146193",
             "Total histórico",
           )}
-          {renderStatCard("Eventos Asistidos", statistics.totalEventsAttended, "heart", "#4CAF50", "Como participante")}
+          {renderStatCard(
+            "Eventos Asistidos",
+            statistics.totalEventsAttended,
+            "heart-outline",
+            "#4CAF50",
+            "Como participante",
+          )}
           {renderStatCard(
             "Comentarios Escritos",
             statistics.totalComments,
-            "chatbubble",
+            "chatbubble-outline",
             "#FF9800",
             "En todos los eventos",
           )}
           {renderStatCard(
             "Rating Promedio",
             statistics.averageRatingGiven.toFixed(1),
-            "star",
+            "star-outline",
             "#FFD700",
             "De tus calificaciones",
           )}
@@ -168,22 +174,28 @@ const StatisticsScreen = () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Como Organizador</Text>
         <View style={styles.statsGrid}>
-          {renderStatCard("Total Asistentes", statistics.totalAttendeesReceived, "people", "#2196F3", "En tus eventos")}
+          {renderStatCard(
+            "Total Asistentes",
+            statistics.totalAttendeesReceived,
+            "people-outline",
+            "#2196F3",
+            "En tus eventos",
+          )}
           {renderStatCard(
             "Rating Recibido",
             statistics.averageRatingReceived.toFixed(1),
-            "star-outline",
+            "star-half-outline",
             "#9C27B0",
             "De tus eventos",
           )}
           {renderStatCard(
             "Comentarios Recibidos",
             statistics.totalCommentsReceived,
-            "chatbubbles",
+            "chatbubbles-outline",
             "#00BCD4",
             "En tus eventos",
           )}
-          {renderStatCard("Eventos Exitosos", statistics.successfulEvents, "trophy", "#4CAF50", "Rating > 4.0")}
+          {renderStatCard("Eventos Exitosos", statistics.successfulEvents, "trophy-outline", "#4CAF50", "Rating > 4.0")}
         </View>
       </View>
 
